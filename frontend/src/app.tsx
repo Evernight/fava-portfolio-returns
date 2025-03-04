@@ -62,10 +62,23 @@ const router = createHashRouter([
   },
 ]);
 
+const localStorageThemeSetting = localStorage.getItem('theme');
+const storedTheme = localStorageThemeSetting ?? "auto";
+if (storedTheme === "auto") {
+  document.documentElement.removeAttribute("data-theme");
+} else {
+  document.documentElement.setAttribute("data-theme", storedTheme);
+}
+const isDarkMode = (
+  window.matchMedia && 
+  window.matchMedia("(prefers-color-scheme: dark)").matches && 
+  localStorageThemeSetting != "light"
+);
+
 const theme = createTheme({
   cssVariables: true,
   colorSchemes: {
-    dark: true,
+    dark: isDarkMode,
   },
   typography: {
     fontFamily: "",
