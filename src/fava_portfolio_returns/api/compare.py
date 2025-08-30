@@ -126,28 +126,21 @@ def compare_chart(
     return series
 
 
-def compare_chart_detailed(
-    p: FilteredPortfolio, start_date: datetime.date, end_date: datetime.date, compare_with: list[str]
-) -> list[DetailedSeries]:
-    """Returns detailed comparison data with portfolio values and multiple return calculations"""
-    
-    # Get simple and TWR return methods
+def _create_detailed_data_for_portfolio(
+    p: FilteredPortfolio, start_date: datetime.date, end_date: datetime.date, name: str
+) -> DetailedDatedSeries:
+    """Helper function to create detailed data for a portfolio"""
     simple_method = RETURN_METHODS["simple"]
     twr_method = RETURN_METHODS["twr"]
     
-    # Collect all series data first (similar to original compare_chart)
-    all_detailed_series: list[DetailedDatedSeries] = []
-    
-    # Main portfolio data
     portfolio_vals = portfolio_values(p, start_date, end_date)
     simple_returns = dict(simple_method.series(p, start_date, end_date))
     twr_returns = dict(twr_method.series(p, start_date, end_date))
     
-    # Create detailed data points for main portfolio
-    main_data = []
+    data = []
     for pv in portfolio_vals:
         if pv.date in simple_returns and pv.date in twr_returns:
-            main_data.append(DetailedDataPoint(
+            data.append(DetailedDataPoint(
                 date=pv.date,
                 market=float(pv.market),
                 cost=float(pv.cost),
@@ -156,39 +149,38 @@ def compare_chart_detailed(
                 twr=twr_returns[pv.date]
             ))
     
-    all_detailed_series.append(DetailedDatedSeries(name="Returns", data=main_data))
+    return DetailedDatedSeries(name=name, data=data)
+
+
+def compare_chart_detailed(
+    p: FilteredPortfolio, start_date: datetime.date, end_date: datetime.date, compare_with: list[str]
+) -> list[DetailedSeries]:
+    """Returns detailed comparison data with portfolio values and multiple return calculations"""
+    
+    # Reuse the logic from compare_chart to get the regular series with proper normalization
+    regular_series = compare_chart(p, start_date, end_date, "simple", compare_with)
+    
+    # Now create detailed series for the same portfolios that were selected
+    all_detailed_series: list[DetailedDatedSeries] = []
+    
+    # Main portfolio
+    main_detailed = _create_detailed_data_for_portfolio(p, start_date, end_date, "Returns")
+    all_detailed_series.append(main_detailed)
     
     # Add comparison groups
     for group in p.portfolio.investment_groups.groups:
         if group.id in compare_with:
             fp = p.portfolio.filter([group.id], p.target_currency)
-            group_portfolio_vals = portfolio_values(fp, start_date, end_date)
-            group_simple_returns = dict(simple_method.series(fp, start_date, end_date))
-            group_twr_returns = dict(twr_method.series(fp, start_date, end_date))
-            
-            group_data = []
-            for pv in group_portfolio_vals:
-                if pv.date in group_simple_returns and pv.date in group_twr_returns:
-                    group_data.append(DetailedDataPoint(
-                        date=pv.date,
-                        market=float(pv.market),
-                        cost=float(pv.cost),
-                        cash=float(pv.cash),
-                        simple_return=group_simple_returns[pv.date],
-                        twr=group_twr_returns[pv.date]
-                    ))
-            
-            all_detailed_series.append(DetailedDatedSeries(name=f"(GRP) {group.name}", data=group_data))
+            group_detailed = _create_detailed_data_for_portfolio(fp, start_date, end_date, f"(GRP) {group.name}")
+            all_detailed_series.append(group_detailed)
     
-    # Add comparison currencies (price series)
-    # Note: For currencies, we don't have portfolio values, so we'll use price data and set portfolio values to 0
+    # Add comparison currencies (price series) - these don't have portfolio values
     for currency in p.portfolio.investment_groups.currencies:
         if currency.id in compare_with:
             prices = get_prices(p.pricer, (currency.currency, p.target_currency))
             prices_filtered = [(date, float(value)) for date, value in prices if start_date <= date <= end_date]
             
             currency_data = []
-            # For price series, we need to compute returns relative to first price
             if prices_filtered:
                 first_price = prices_filtered[0][1]
                 for date, price in prices_filtered:
@@ -198,7 +190,7 @@ def compare_chart_detailed(
                         market=0.0,  # No portfolio values for currency comparisons
                         cost=0.0,
                         cash=0.0,
-                        simple_return=price_return,  # Use price return for both
+                        simple_return=price_return,
                         twr=price_return
                     ))
             
@@ -208,53 +200,30 @@ def compare_chart_detailed(
     for account in p.portfolio.investment_groups.accounts:
         if account.id in compare_with:
             fp = p.portfolio.filter([account.id], p.target_currency)
-            account_portfolio_vals = portfolio_values(fp, start_date, end_date)
-            account_simple_returns = dict(simple_method.series(fp, start_date, end_date))
-            account_twr_returns = dict(twr_method.series(fp, start_date, end_date))
-            
-            account_data = []
-            for pv in account_portfolio_vals:
-                if pv.date in account_simple_returns and pv.date in account_twr_returns:
-                    account_data.append(DetailedDataPoint(
-                        date=pv.date,
-                        market=float(pv.market),
-                        cost=float(pv.cost),
-                        cash=float(pv.cash),
-                        simple_return=account_simple_returns[pv.date],
-                        twr=account_twr_returns[pv.date]
-                    ))
-            
-            all_detailed_series.append(DetailedDatedSeries(name=f"(ACC) {account.assetAccount}", data=account_data))
+            account_detailed = _create_detailed_data_for_portfolio(fp, start_date, end_date, f"(ACC) {account.assetAccount}")
+            all_detailed_series.append(account_detailed)
     
-    # Find first common date across all series
-    if not all_detailed_series:
+    # Find the common date by using the regular series (which already has this logic)
+    if not regular_series or not all_detailed_series:
         return []
     
-    common_date = None
-    for data_point in sorted(all_detailed_series[0].data, key=lambda dp: dp.date):
-        date = data_point.date
-        if all(date in s.dates for s in all_detailed_series[1:]):
-            common_date = date
-            break
+    # Get the first date from the regular series (which is already normalized)
+    first_regular_date = regular_series[0].data[0][0]
     
-    if not common_date:
-        raise ValueError("No overlapping start date found for the selected series.")
-    
-    # Cut off data before common date and normalize to start from 0
+    # Apply the same date filtering and normalization to detailed series
     final_series: list[DetailedSeries] = []
     for detailed_serie in all_detailed_series:
-        # Find the index where common_date starts
-        filtered_data = [dp for dp in detailed_serie.data if dp.date >= common_date]
+        # Filter data to start from the same date as regular series
+        filtered_data = [dp for dp in detailed_serie.data if dp.date >= first_regular_date]
         
         if not filtered_data:
             continue
             
-        # Get the first data point values to normalize against
+        # Normalize to start from 0 (same as regular series)
         first_point = filtered_data[0]
         first_simple = first_point.simple_return
         first_twr = first_point.twr
         
-        # Create normalized data points
         normalized_data = []
         for dp in filtered_data:
             normalized_data.append(DetailedDataPoint(
@@ -262,8 +231,8 @@ def compare_chart_detailed(
                 market=dp.market,
                 cost=dp.cost,
                 cash=dp.cash,
-                simple_return=dp.simple_return - first_simple,  # Normalize to start from 0
-                twr=dp.twr - first_twr  # Normalize to start from 0
+                simple_return=dp.simple_return - first_simple,
+                twr=dp.twr - first_twr
             ))
         
         final_series.append(DetailedSeries(name=detailed_serie.name, data=normalized_data))
