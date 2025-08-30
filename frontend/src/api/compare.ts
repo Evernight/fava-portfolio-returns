@@ -8,9 +8,18 @@ interface CompareRequest {
   compareWith: string[];
 }
 
+export interface DetailedDataPoint {
+  date: string;
+  market: number;
+  cost: number;
+  cash: number;
+  simple_return: number;
+  twr: number;
+}
+
 interface Serie {
   name: string;
-  data: [string, number][];
+  data: [string, number | DetailedDataPoint][];
 }
 
 export interface CompareResponse {

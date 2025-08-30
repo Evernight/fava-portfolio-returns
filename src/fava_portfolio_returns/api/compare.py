@@ -2,24 +2,24 @@ import datetime
 import logging
 from dataclasses import dataclass
 from typing import NamedTuple
+from typing import Union
 
 from fava_portfolio_returns.core.portfolio import FilteredPortfolio
 from fava_portfolio_returns.core.utils import get_prices
+from fava_portfolio_returns.returns.detailed_table import DetailedDataPoint
 from fava_portfolio_returns.returns.factory import RETURN_METHODS
 
 logger = logging.getLogger(__name__)
 
-
 class Series(NamedTuple):
     name: str
-    data: list[tuple[datetime.date, float]]
-
+    data: list[tuple[datetime.date, Union[float, DetailedDataPoint]]]
 
 @dataclass
 class DatedSeries:
     name: str
     dates: frozenset[datetime.date]
-    data: list[tuple[datetime.date, float]]
+    data: list[tuple[datetime.date, Union[float, DetailedDataPoint]]]
 
     def __init__(self, name, data):
         self.name = name
@@ -35,16 +35,37 @@ class DatedSeries:
                 break
         performance = []
         for date, value in self.data[start_from:]:
-            if normalization_method == "twr":
-                performance.append((date, (value + 1.0) / (first_value + 1.0) - 1.0))
-            elif normalization_method == "simple":
-                performance.append((date, value - first_value))
-            elif normalization_method == "price":
-                performance.append((date, value / first_value - 1.0))
+            if isinstance(value, DetailedDataPoint):
+                if normalization_method == 'price':
+                    new_value = DetailedDataPoint(
+                        date=date,
+                        market=value.market,
+                        cost=value.cost,
+                        cash=value.cash,
+                        simple_return=value.simple_return/first_value.simple_return - 1.0,
+                        twr=value.twr/first_value.twr - 1.0
+                    )
+                else:
+                    new_value = DetailedDataPoint(
+                        date=date,
+                        market=value.market,
+                        cost=value.cost,
+                        cash=value.cash,
+                        simple_return=value.simple_return - first_value.simple_return,
+                        twr=(value.twr + 1.0)/(first_value.twr + 1.0) - 1.0
+                    )
+                performance.append((date, new_value))
             else:
-                raise ValueError(f"Invalid normalization method '{normalization_method}'")
+                if normalization_method == 'twr':
+                    performance.append((date, (value + 1.0)/(first_value + 1.0) - 1.0))
+                elif normalization_method == 'simple':
+                    performance.append((date, value - first_value))
+                elif normalization_method == 'price':
+                    performance.append((date, value/first_value - 1.0))
+                else:
+                    raise ValueError(f"Invalid normalization method '{normalization_method}'")
+        print(f"Performance: {performance} for {self.name}")
         return Series(name=self.name, data=performance)
-
 
 def compare_chart(
     p: FilteredPortfolio, start_date: datetime.date, end_date: datetime.date, method: str, compare_with: list[str]
@@ -73,6 +94,8 @@ def compare_chart(
         if currency.id in compare_with:
             prices = get_prices(p.pricer, (currency.currency, p.target_currency))
             prices_filtered = [(date, float(value)) for date, value in prices if start_date <= date <= end_date]
+            if method == "detailed_table":
+                prices_filtered = [(date, DetailedDataPoint(date=date, market=float(value), cost=0.0, cash=0.0, simple_return=float(value), twr=float(value))) for date, value in prices_filtered]
             price_series.append(DatedSeries(name=f"{currency.name} ({currency.currency})", data=prices_filtered))
 
     # find first common date
@@ -84,16 +107,17 @@ def compare_chart(
             and all(date in s.dates for s in account_series)
         ):
             common_date = date
+            print(f"Common date: {common_date}")
             break
     else:
         raise ValueError("No overlapping start date found for the selected series.")
-
+    
     series: list[Series] = []
     for group_serie in group_series:
         series.append(group_serie.get_performance_starting_at_date(common_date, normalization_method=method))
     for account_serie in account_series:
         series.append(account_serie.get_performance_starting_at_date(common_date, normalization_method=method))
     for price_serie in price_series:
-        series.append(price_serie.get_performance_starting_at_date(common_date, normalization_method="price"))
+        series.append(price_serie.get_performance_starting_at_date(common_date, normalization_method='price'))
 
     return series

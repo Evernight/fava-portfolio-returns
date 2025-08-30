@@ -6,11 +6,12 @@ import { EChart } from "../components/EChart";
 import { useToolbarContext } from "../components/Header/ToolbarProvider";
 import { InvestmentsSelection } from "../components/InvestmentsSelection";
 import { Loading } from "../components/Loading";
-import { ReturnsMethodSelection } from "../components/ReturnsMethodSelection";
+import { PerformanceDataGrid } from "../components/PerformanceDataGrid";
+import { ReturnsMethod, ReturnsMethodSelection } from "../components/ReturnsMethodSelection";
 import { percentFormatter } from "../components/format";
 import { CommaArrayParam } from "../components/query_params";
 
-const ReturnsMethodEnum = createEnumParam(["simple", "twr"]);
+const ReturnsMethodEnum = createEnumParam(["simple", "twr", "detailed_table"]);
 const ReturnsMethodParam = withDefault(ReturnsMethodEnum, "simple" as const);
 const InvestmentsParam = withDefault(CommaArrayParam, []);
 
@@ -25,7 +26,13 @@ export function Performance() {
         <Panel
           title="Performance"
           help={`The performance chart compares the relative performance of the currently selected investments with other groups and commodities.`}
-          topRightElem={<ReturnsMethodSelection options={["simple", "twr"]} method={method} setMethod={setMethod} />}
+          topRightElem={
+            <ReturnsMethodSelection
+              options={["simple", "twr", "detailed_table"]}
+              method={method}
+              setMethod={setMethod}
+            />
+          }
         >
           <PerformanceChart method={method} investments={investments} />
           <Box sx={{ display: "flex", justifyContent: "center", marginTop: 3 }}>
@@ -43,16 +50,18 @@ export function Performance() {
 }
 
 interface PerformanceChartProps {
-  method: string;
+  method: ReturnsMethod;
   investments: string[];
 }
 
 function PerformanceChart({ method, investments }: PerformanceChartProps) {
   const { investmentFilter, targetCurrency } = useToolbarContext();
+
+  // Use detailed data for table view, regular data for chart view
   const { isPending, error, data } = useCompare({
     investmentFilter,
     targetCurrency,
-    method,
+    method: method,
     compareWith: investments,
   });
 
@@ -61,6 +70,10 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
   }
   if (error) {
     return <Alert severity="error">{error.message}</Alert>;
+  }
+
+  if (method === "detailed_table") {
+    return <PerformanceDataGrid series={data.series} />;
   }
 
   const option = {

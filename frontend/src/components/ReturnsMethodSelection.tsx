@@ -12,6 +12,7 @@ export const ReturnsMethods = {
     label: "Time-Weighted Rate of Return",
   },
   monetary: { label: "Monetary Returns" },
+  detailed_table: { label: "Table" },
 };
 
 export type ReturnsMethod = keyof typeof ReturnsMethods;

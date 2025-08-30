@@ -1,4 +1,5 @@
 from fava_portfolio_returns.returns.base import ReturnsBase
+from fava_portfolio_returns.returns.detailed_table import DetailedTableReturns
 from fava_portfolio_returns.returns.irr import IRR
 from fava_portfolio_returns.returns.mdm import ModifiedDietzMethod
 from fava_portfolio_returns.returns.monetary import MonetaryReturns
@@ -11,4 +12,5 @@ RETURN_METHODS: dict[str, ReturnsBase] = {
     "mdm": ModifiedDietzMethod(),
     "twr": TWR(),
     "monetary": MonetaryReturns(),
+    "detailed_table": DetailedTableReturns(),
 }

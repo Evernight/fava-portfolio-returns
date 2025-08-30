@@ -1,6 +1,7 @@
 import datetime
 import unittest
 
+from fava_portfolio_returns.api.compare import DetailedDataPoint
 from fava_portfolio_returns.api.compare import Series
 from fava_portfolio_returns.api.compare import compare_chart
 from fava_portfolio_returns.test.test import approx2
@@ -31,6 +32,28 @@ class TestCompare(unittest.TestCase):
                 ],
             ),
         ]
+
+    def test_savings_plan_detailed_table(self):
+        p = load_portfolio_file("savings_plan")
+        series = compare_chart(p, datetime.date(2020, 1, 1), datetime.date(2020, 4, 1), "detailed_table", ["c:CORP"])
+
+        # Check that we get DetailedDataPoint objects
+        assert len(series) == 2
+        assert series[0].name == "Returns"
+        assert series[1].name == "CORP (CORP)"
+
+        # Check that the data contains DetailedDataPoint objects
+        for serie in series:
+            assert len(serie.data) == 4
+            for date, value in serie.data:
+                assert isinstance(value, DetailedDataPoint)
+                assert hasattr(value, "date")
+                assert hasattr(value, "market")
+                assert hasattr(value, "cost")
+                assert hasattr(value, "cash")
+                assert hasattr(value, "simple_return")
+                assert hasattr(value, "twr")
+                assert value.date == date
 
     def test_savings_plan_twr(self):
         p = load_portfolio_file("savings_plan")
