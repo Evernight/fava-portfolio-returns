@@ -1,21 +1,28 @@
-import { Box, Chip } from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 import { DataGrid, GridColDef, GridRowClassNameParams } from '@mui/x-data-grid';
 import { percentFormatter } from './format';
+import { DetailedDataPoint } from '../api/compare';
 
 interface Serie {
   name: string;
   data: [string, number][];
 }
 
+interface DetailedSerie {
+  name: string;
+  data: DetailedDataPoint[];
+}
+
 interface PerformanceDataGridProps {
-  series: Serie[];
+  series?: Serie[];
+  detailedSeries?: DetailedSerie[];
 }
 
 interface GridRow {
   id: string;
   investment: string;
   color: string;
-  [date: string]: string | number;
+  [date: string]: string | number | DetailedDataPoint;
 }
 
 // Color palette for different investments
@@ -26,23 +33,35 @@ const COLOR_PALETTE = [
   '#c49c94', '#f7b6d3', '#c7c7c7', '#dbdb8d', '#9edae5'
 ];
 
-export function PerformanceDataGrid({ series }: PerformanceDataGridProps) {
-  if (!series || series.length === 0) {
+export function PerformanceDataGrid({ series, detailedSeries }: PerformanceDataGridProps) {
+  // Use detailed series if available, otherwise fall back to regular series
+  const useDetailedData = detailedSeries && detailedSeries.length > 0;
+  const dataToUse = useDetailedData ? detailedSeries : series;
+  
+  if (!dataToUse || dataToUse.length === 0) {
     return <div>No data available</div>;
   }
 
   // Get all unique dates from all series
   const allDates = new Set<string>();
-  series.forEach(serie => {
-    serie.data.forEach(([date]) => {
-      allDates.add(date);
+  if (useDetailedData) {
+    detailedSeries!.forEach(serie => {
+      serie.data.forEach(dataPoint => {
+        allDates.add(dataPoint.date);
+      });
     });
-  });
+  } else {
+    series!.forEach(serie => {
+      serie.data.forEach(([date]) => {
+        allDates.add(date);
+      });
+    });
+  }
   
   const sortedDates = Array.from(allDates).sort();
 
   // Transform data into rows for DataGrid
-  const rows: GridRow[] = series.map((serie, index) => {
+  const rows: GridRow[] = dataToUse.map((serie, index) => {
     const color = COLOR_PALETTE[index % COLOR_PALETTE.length];
     const row: GridRow = {
       id: serie.name,
@@ -50,14 +69,27 @@ export function PerformanceDataGrid({ series }: PerformanceDataGridProps) {
       color: color,
     };
     
-    // Create a map for quick lookup of values by date
-    const dataMap = new Map(serie.data);
-    
-    // Fill in values for each date
-    sortedDates.forEach(date => {
-      const value = dataMap.get(date);
-      row[date] = value !== undefined ? value : '';
-    });
+    if (useDetailedData) {
+      // Create a map for quick lookup of detailed values by date
+      const detailedSerie = serie as DetailedSerie;
+      const dataMap = new Map(detailedSerie.data.map(dp => [dp.date, dp]));
+      
+      // Fill in values for each date
+      sortedDates.forEach(date => {
+        const dataPoint = dataMap.get(date);
+        row[date] = dataPoint || '';
+      });
+    } else {
+      // Create a map for quick lookup of values by date
+      const regularSerie = serie as Serie;
+      const dataMap = new Map(regularSerie.data);
+      
+      // Fill in values for each date
+      sortedDates.forEach(date => {
+        const value = dataMap.get(date);
+        row[date] = value !== undefined ? value : '';
+      });
+    }
     
     return row;
   });
@@ -89,16 +121,43 @@ export function PerformanceDataGrid({ series }: PerformanceDataGridProps) {
         day: 'numeric',
         year: 'numeric'
       }),
-      width: 120,
-      type: 'number' as const,
-      valueFormatter: (value: number | string) => {
+      width: useDetailedData ? 280 : 120,
+      type: useDetailedData ? 'string' as const : 'number' as const,
+      valueFormatter: useDetailedData ? undefined : (value: number | string) => {
         if (typeof value === 'number') {
           return percentFormatter(value);
         }
         return value;
       },
-      renderCell: (params) => {
-        if (typeof params.value === 'number') {
+      renderCell: (params: any) => {
+        if (useDetailedData && typeof params.value === 'object' && params.value !== null) {
+          const dataPoint = params.value as DetailedDataPoint;
+          return (
+            <Box sx={{ 
+              color: params.row.color, 
+              fontWeight: 'bold',
+              fontSize: '0.75rem',
+              lineHeight: 1.2,
+              padding: '2px 0'
+            }}>
+              <Typography variant="caption" display="block" sx={{ fontWeight: 'bold' }}>
+                Market: {Math.round(dataPoint.market).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" display="block">
+                Cost: {Math.round(dataPoint.cost).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" display="block">
+                Cash: {Math.round(dataPoint.cash).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: 'primary.main' }}>
+                Simple: {percentFormatter(dataPoint.simple_return)}
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: 'secondary.main' }}>
+                TWR: {percentFormatter(dataPoint.twr)}
+              </Typography>
+            </Box>
+          );
+        } else if (!useDetailedData && typeof params.value === 'number') {
           return (
             <Box sx={{ color: params.row.color, fontWeight: 'bold' }}>
               {percentFormatter(params.value)}
@@ -131,19 +190,24 @@ export function PerformanceDataGrid({ series }: PerformanceDataGridProps) {
       </Box>
       
       {/* DataGrid */}
-      <div style={{ height: 400, width: '100%' }}>
+      <div style={{ height: useDetailedData ? 600 : 400, width: '100%' }}>
         <DataGrid
           rows={rows}
           columns={columns}
           disableRowSelectionOnClick
           disableColumnFilter
           hideFooter
+          getRowHeight={() => useDetailedData ? 120 : 'auto'}
           sx={{
             '& .MuiDataGrid-columnHeader': {
               backgroundColor: 'rgba(0, 0, 0, 0.04)',
             },
             '& .MuiDataGrid-virtualScroller': {
               overflowX: 'scroll !important',
+            },
+            '& .MuiDataGrid-cell': {
+              alignItems: useDetailedData ? 'flex-start' : 'center',
+              paddingTop: useDetailedData ? '8px' : undefined,
             },
           }}
         />

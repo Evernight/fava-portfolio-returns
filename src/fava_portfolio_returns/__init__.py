@@ -20,7 +20,7 @@ from flask import request
 from fava_portfolio_returns.api.cash_flows import cash_flows_chart
 from fava_portfolio_returns.api.cash_flows import cash_flows_table
 from fava_portfolio_returns.api.cash_flows import dividends_chart
-from fava_portfolio_returns.api.compare import compare_chart
+from fava_portfolio_returns.api.compare import compare_chart, compare_chart_detailed
 from fava_portfolio_returns.api.investments import investments_group_by_currency
 from fava_portfolio_returns.api.investments import investments_group_by_group
 from fava_portfolio_returns.api.portfolio import portfolio_allocation
@@ -203,8 +203,12 @@ class FavaPortfolioReturns(FavaExtensionBase):
         p = self.get_filtered_portfolio(toolbar_ctx)
         method = request.args.get("method", "")
         compare_with = list(filter(None, request.args.get("compareWith", "").split(",")))
+        detailed = request.args.get("detailed", "false").lower() == "true"
 
-        series = compare_chart(p, toolbar_ctx.start_date, toolbar_ctx.end_date, method, compare_with)
+        if detailed:
+            series = compare_chart_detailed(p, toolbar_ctx.start_date, toolbar_ctx.end_date, compare_with)
+        else:
+            series = compare_chart(p, toolbar_ctx.start_date, toolbar_ctx.end_date, method, compare_with)
 
         return {"series": series}
 

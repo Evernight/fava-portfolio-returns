@@ -1,6 +1,6 @@
 import { Alert, Box } from "@mui/material";
 import { createEnumParam, useQueryParam, withDefault } from "use-query-params";
-import { useCompare } from "../api/compare";
+import { useCompare, useDetailedCompare } from "../api/compare";
 import { Dashboard, DashboardRow, Panel } from "../components/Dashboard";
 import { DisplayMethodSelection, DisplayMethod } from "../components/DisplayMethodSelection";
 import { EChart } from "../components/EChart";
@@ -60,12 +60,23 @@ interface PerformanceChartProps {
 
 function PerformanceChart({ method, investments, displayMethod }: PerformanceChartProps) {
   const { investmentFilter, targetCurrency } = useToolbarContext();
-  const { isPending, error, data } = useCompare({
+  
+  // Use detailed data for table view, regular data for chart view
+  const { isPending: isPendingRegular, error: errorRegular, data: dataRegular } = useCompare({
     investmentFilter,
     targetCurrency,
     method,
     compareWith: investments,
   });
+  
+  const { isPending: isPendingDetailed, error: errorDetailed, data: dataDetailed } = useDetailedCompare({
+    investmentFilter,
+    targetCurrency,
+    compareWith: investments,
+  });
+
+  const isPending = displayMethod === "table" ? isPendingDetailed : isPendingRegular;
+  const error = displayMethod === "table" ? errorDetailed : errorRegular;
 
   if (isPending) {
     return <Loading />;
@@ -75,8 +86,10 @@ function PerformanceChart({ method, investments, displayMethod }: PerformanceCha
   }
 
   if (displayMethod === "table") {
-    return <PerformanceDataGrid series={data.series} />;
+    return <PerformanceDataGrid detailedSeries={dataDetailed?.series} />;
   }
+
+  const data = dataRegular!;
 
   const option = {
     tooltip: {
