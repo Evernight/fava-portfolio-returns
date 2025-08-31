@@ -27,35 +27,45 @@ class DatedSeries:
         self.data = data
         self.dates = frozenset(date for date, _ in data)
 
-    def get_performance_starting_at_date(self, date: datetime.date, normalize_to_first_value: bool = False) -> Series:
+    def get_performance_starting_at_date(self, start_date: datetime.date, normalization_method: str) -> Series:
         start_from = None
         for i, (date, value) in enumerate(self.data):
-            if date == date:
+            if date == start_date:
                 first_value = value
                 start_from = i
                 break
         performance = []
         for date, value in self.data[start_from:]:
             if isinstance(value, DetailedDataPoint):
-                if normalize_to_first_value:
+                if normalization_method == 'price':
                     new_value = DetailedDataPoint(
-                    date=date,
-                    market=value.market,
-                    cost=value.cost,
-                    cash=value.cash,
-                    simple_return=value.simple_return - first_value.simple_return,
-                    twr=value.twr/first_value.twr - 1.0)
+                        date=date,
+                        market=value.market,
+                        cost=value.cost,
+                        cash=value.cash,
+                        simple_return=value.simple_return/first_value.simple_return - 1.0,
+                        twr=value.twr/first_value.twr - 1.0
+                    )
                 else:
                     new_value = DetailedDataPoint(
-                    date=date,
-                    market=value.market,
-                    cost=value.cost,
-                    cash=value.cash,
-                    simple_return=value.simple_return - first_value.simple_return,
-                    twr=value.twr - first_value.twr)
+                        date=date,
+                        market=value.market,
+                        cost=value.cost,
+                        cash=value.cash,
+                        simple_return=value.simple_return - first_value.simple_return,
+                        twr=(value.twr + 1.0)/(first_value.twr + 1.0) - 1.0
+                    )
                 performance.append((date, new_value))
             else:
-                performance.append((date, value/first_value - 1 if normalize_to_first_value else value - first_value))
+                if normalization_method == 'twr':
+                    performance.append((date, (value + 1.0)/(first_value + 1.0) - 1.0))
+                elif normalization_method == 'simple':
+                    performance.append((date, value - first_value))
+                elif normalization_method == 'price':
+                    performance.append((date, value/first_value - 1.0))
+                else:
+                    raise ValueError(f"Invalid normalization method '{normalization_method}'")
+        print(f"Performance: {performance} for {self.name}")
         return Series(name=self.name, data=performance)
 
 
@@ -88,7 +98,7 @@ def compare_chart(
             prices = get_prices(p.pricer, (currency.currency, p.target_currency))
             prices_filtered = [(date, float(value)) for date, value in prices if start_date <= date <= end_date]
             if method == "detailed_table":
-                prices_filtered = [(date, DetailedDataPoint(date=date, market=float(value), cost=0.0, cash=float(value), simple_return=float(value), twr=float(value))) for date, value in prices_filtered]
+                prices_filtered = [(date, DetailedDataPoint(date=date, market=float(value), cost=0.0, cash=0.0, simple_return=float(value), twr=float(value))) for date, value in prices_filtered]
             price_series.append(DatedSeries(name=f"{currency.name} ({currency.currency})", data=prices_filtered))
 
     # find first common date
@@ -96,16 +106,17 @@ def compare_chart(
     for date in sorted(group_series[0].dates):
         if all(date in s.dates for s in group_series[1:]) and all(date in s.dates for s in price_series) and all(date in s.dates for s in account_series):
             common_date = date
+            print(f"Common date: {common_date}")
             break
     else:
         raise ValueError("No overlapping start date found for the selected series.")
     
     series: list[Series] = []
     for group_serie in group_series:
-        series.append(group_serie.get_performance_starting_at_date(common_date))
-    for price_serie in price_series:
-        series.append(price_serie.get_performance_starting_at_date(common_date, normalize_to_first_value=True))
+        series.append(group_serie.get_performance_starting_at_date(common_date, normalization_method=method))
     for account_serie in account_series:
-        series.append(account_serie.get_performance_starting_at_date(common_date))
+        series.append(account_serie.get_performance_starting_at_date(common_date, normalization_method=method))
+    for price_serie in price_series:
+        series.append(price_serie.get_performance_starting_at_date(common_date, normalization_method='price'))
 
     return series
