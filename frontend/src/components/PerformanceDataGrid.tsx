@@ -5,17 +5,11 @@ import { DetailedDataPoint } from '../api/compare';
 
 interface Serie {
   name: string;
-  data: [string, number][];
-}
-
-interface DetailedSerie {
-  name: string;
-  data: DetailedDataPoint[];
+  data: [string, number | DetailedDataPoint][];
 }
 
 interface PerformanceDataGridProps {
   series?: Serie[];
-  detailedSeries?: DetailedSerie[];
 }
 
 interface GridRow {
@@ -33,35 +27,31 @@ const COLOR_PALETTE = [
   '#c49c94', '#f7b6d3', '#c7c7c7', '#dbdb8d', '#9edae5'
 ];
 
-export function PerformanceDataGrid({ series, detailedSeries }: PerformanceDataGridProps) {
-  // Use detailed series if available, otherwise fall back to regular series
-  const useDetailedData = detailedSeries && detailedSeries.length > 0;
-  const dataToUse = useDetailedData ? detailedSeries : series;
-  
-  if (!dataToUse || dataToUse.length === 0) {
+export function PerformanceDataGrid({ series }: PerformanceDataGridProps) {
+  if (!series || series.length === 0) {
     return <div>No data available</div>;
   }
 
+  // Determine if we have detailed data by checking the first data point
+  const useDetailedData = series.length > 0 && series[0].data.length > 0 && 
+    typeof series[0].data[0][1] === 'object' && series[0].data[0][1] !== null;
+
   // Get all unique dates from all series
   const allDates = new Set<string>();
-  if (useDetailedData) {
-    detailedSeries!.forEach(serie => {
-      serie.data.forEach(dataPoint => {
-        allDates.add(dataPoint.date);
-      });
-    });
-  } else {
-    series!.forEach(serie => {
-      serie.data.forEach(([date]) => {
+  series.forEach(serie => {
+    serie.data.forEach(([date, value]) => {
+      if (useDetailedData && typeof value === 'object' && value !== null) {
+        allDates.add((value as DetailedDataPoint).date);
+      } else {
         allDates.add(date);
-      });
+      }
     });
-  }
+  });
   
   const sortedDates = Array.from(allDates).sort();
 
   // Transform data into rows for DataGrid
-  const rows: GridRow[] = dataToUse.map((serie, index) => {
+  const rows: GridRow[] = series.map((serie, index) => {
     const color = COLOR_PALETTE[index % COLOR_PALETTE.length];
     const row: GridRow = {
       id: serie.name,
@@ -71,8 +61,12 @@ export function PerformanceDataGrid({ series, detailedSeries }: PerformanceDataG
     
     if (useDetailedData) {
       // Create a map for quick lookup of detailed values by date
-      const detailedSerie = serie as DetailedSerie;
-      const dataMap = new Map(detailedSerie.data.map(dp => [dp.date, dp]));
+      const dataMap = new Map<string, DetailedDataPoint>();
+      serie.data.forEach(([date, value]) => {
+        if (typeof value === 'object' && value !== null) {
+          dataMap.set((value as DetailedDataPoint).date, value as DetailedDataPoint);
+        }
+      });
       
       // Fill in values for each date
       sortedDates.forEach(date => {
@@ -81,8 +75,12 @@ export function PerformanceDataGrid({ series, detailedSeries }: PerformanceDataG
       });
     } else {
       // Create a map for quick lookup of values by date
-      const regularSerie = serie as Serie;
-      const dataMap = new Map(regularSerie.data);
+      const dataMap = new Map<string, number>();
+      serie.data.forEach(([date, value]) => {
+        if (typeof value === 'number') {
+          dataMap.set(date, value);
+        }
+      });
       
       // Fill in values for each date
       sortedDates.forEach(date => {

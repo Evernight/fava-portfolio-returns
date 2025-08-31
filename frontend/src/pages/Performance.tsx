@@ -1,6 +1,6 @@
 import { Alert, Box } from "@mui/material";
 import { createEnumParam, useQueryParam, withDefault } from "use-query-params";
-import { useCompare, useDetailedCompare } from "../api/compare";
+import { useCompare } from "../api/compare";
 import { Dashboard, DashboardRow, Panel } from "../components/Dashboard";
 import { EChart } from "../components/EChart";
 import { useToolbarContext } from "../components/Header/ToolbarProvider";
@@ -54,21 +54,13 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
   const { investmentFilter, targetCurrency } = useToolbarContext();
   
   // Use detailed data for table view, regular data for chart view
-  const { isPending: isPendingRegular, error: errorRegular, data: dataRegular } = useCompare({
+  const { isPending, error, data } = useCompare({
     investmentFilter,
     targetCurrency,
-    method: method === "detailed_table" ? "simple" : method, // Use simple method for detailed table data fetching
+    method: method === "detailed_table" ? undefined : method, // Don't pass method for detailed table
     compareWith: investments,
+    detailed: method === "detailed_table",
   });
-  
-  const { isPending: isPendingDetailed, error: errorDetailed, data: dataDetailed } = useDetailedCompare({
-    investmentFilter,
-    targetCurrency,
-    compareWith: investments,
-  });
-
-  const isPending = method === "detailed_table" ? isPendingDetailed : isPendingRegular;
-  const error = method === "detailed_table" ? errorDetailed : errorRegular;
 
   if (isPending) {
     return <Loading />;
@@ -78,10 +70,8 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
   }
 
   if (method === "detailed_table") {
-    return <PerformanceDataGrid detailedSeries={dataDetailed?.series} />;
+    return <PerformanceDataGrid series={data?.series} />;
   }
-
-  const data = dataRegular!;
 
   const option = {
     tooltip: {
@@ -103,7 +93,7 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
         formatter: percentFormatter,
       },
     },
-    series: data.series.map((serie) => ({
+    series: data!.series.map((serie) => ({
       type: "line",
       showSymbol: false,
       name: serie.name,
