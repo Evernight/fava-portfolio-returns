@@ -197,6 +197,9 @@ export function PerformanceDataGrid({ series, detailedSeries }: PerformanceDataG
           disableRowSelectionOnClick
           disableColumnFilter
           hideFooter
+          disableColumnSorting
+          disableColumnSelector
+          disableColumnMenu
           getRowHeight={() => useDetailedData ? 120 : 'auto'}
           sx={{
             '& .MuiDataGrid-columnHeader': {

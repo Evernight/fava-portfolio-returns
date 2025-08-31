@@ -2,25 +2,21 @@ import { Alert, Box } from "@mui/material";
 import { createEnumParam, useQueryParam, withDefault } from "use-query-params";
 import { useCompare, useDetailedCompare } from "../api/compare";
 import { Dashboard, DashboardRow, Panel } from "../components/Dashboard";
-import { DisplayMethodSelection, DisplayMethod } from "../components/DisplayMethodSelection";
 import { EChart } from "../components/EChart";
 import { useToolbarContext } from "../components/Header/ToolbarProvider";
 import { InvestmentsSelection } from "../components/InvestmentsSelection";
 import { Loading } from "../components/Loading";
 import { PerformanceDataGrid } from "../components/PerformanceDataGrid";
-import { ReturnsMethodSelection } from "../components/ReturnsMethodSelection";
+import { ReturnsMethodSelection, ReturnsMethod } from "../components/ReturnsMethodSelection";
 import { percentFormatter } from "../components/format";
 import { CommaArrayParam } from "../components/query_params";
 
-const ReturnsMethodEnum = createEnumParam(["simple", "twr"]);
+const ReturnsMethodEnum = createEnumParam(["simple", "twr", "detailed_table"]);
 const ReturnsMethodParam = withDefault(ReturnsMethodEnum, "simple" as const);
-const DisplayMethodEnum = createEnumParam(["chart", "table"]);
-const DisplayMethodParam = withDefault(DisplayMethodEnum, "chart" as const);
 const InvestmentsParam = withDefault(CommaArrayParam, []);
 
 export function Performance() {
   const [method, setMethod] = useQueryParam("method", ReturnsMethodParam);
-  const [displayMethod, setDisplayMethod] = useQueryParam("display", DisplayMethodParam);
   const [_investments, setInvestments] = useQueryParam("compareWith", InvestmentsParam);
   const investments = _investments.filter((i) => i !== null) as string[];
 
@@ -31,13 +27,10 @@ export function Performance() {
           title="Performance"
           help={`The performance chart compares the relative performance of the currently selected investments with other groups and commodities.`}
           topRightElem={
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <ReturnsMethodSelection options={["simple", "twr"]} method={method} setMethod={setMethod} />
-              <DisplayMethodSelection method={displayMethod} setMethod={setDisplayMethod} />
-            </Box>
+            <ReturnsMethodSelection options={["simple", "twr", "detailed_table"]} method={method} setMethod={setMethod} />
           }
         >
-          <PerformanceChart method={method} investments={investments} displayMethod={displayMethod} />
+          <PerformanceChart method={method} investments={investments} />
           <Box sx={{ display: "flex", justifyContent: "center", marginTop: 3 }}>
             <InvestmentsSelection
               label="Compare with"
@@ -53,19 +46,18 @@ export function Performance() {
 }
 
 interface PerformanceChartProps {
-  method: string;
+  method: ReturnsMethod;
   investments: string[];
-  displayMethod: DisplayMethod;
 }
 
-function PerformanceChart({ method, investments, displayMethod }: PerformanceChartProps) {
+function PerformanceChart({ method, investments }: PerformanceChartProps) {
   const { investmentFilter, targetCurrency } = useToolbarContext();
   
   // Use detailed data for table view, regular data for chart view
   const { isPending: isPendingRegular, error: errorRegular, data: dataRegular } = useCompare({
     investmentFilter,
     targetCurrency,
-    method,
+    method: method === "detailed_table" ? "simple" : method, // Use simple method for detailed table data fetching
     compareWith: investments,
   });
   
@@ -75,8 +67,8 @@ function PerformanceChart({ method, investments, displayMethod }: PerformanceCha
     compareWith: investments,
   });
 
-  const isPending = displayMethod === "table" ? isPendingDetailed : isPendingRegular;
-  const error = displayMethod === "table" ? errorDetailed : errorRegular;
+  const isPending = method === "detailed_table" ? isPendingDetailed : isPendingRegular;
+  const error = method === "detailed_table" ? errorDetailed : errorRegular;
 
   if (isPending) {
     return <Loading />;
@@ -85,7 +77,7 @@ function PerformanceChart({ method, investments, displayMethod }: PerformanceCha
     return <Alert severity="error">{error.message}</Alert>;
   }
 
-  if (displayMethod === "table") {
+  if (method === "detailed_table") {
     return <PerformanceDataGrid detailedSeries={dataDetailed?.series} />;
   }
 
