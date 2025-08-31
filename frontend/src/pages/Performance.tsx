@@ -7,7 +7,7 @@ import { useToolbarContext } from "../components/Header/ToolbarProvider";
 import { InvestmentsSelection } from "../components/InvestmentsSelection";
 import { Loading } from "../components/Loading";
 import { PerformanceDataGrid } from "../components/PerformanceDataGrid";
-import { ReturnsMethodSelection, ReturnsMethod } from "../components/ReturnsMethodSelection";
+import { ReturnsMethod, ReturnsMethodSelection } from "../components/ReturnsMethodSelection";
 import { percentFormatter } from "../components/format";
 import { CommaArrayParam } from "../components/query_params";
 
@@ -27,7 +27,11 @@ export function Performance() {
           title="Performance"
           help={`The performance chart compares the relative performance of the currently selected investments with other groups and commodities.`}
           topRightElem={
-            <ReturnsMethodSelection options={["simple", "twr", "detailed_table"]} method={method} setMethod={setMethod} />
+            <ReturnsMethodSelection
+              options={["simple", "twr", "detailed_table"]}
+              method={method}
+              setMethod={setMethod}
+            />
           }
         >
           <PerformanceChart method={method} investments={investments} />
@@ -52,7 +56,7 @@ interface PerformanceChartProps {
 
 function PerformanceChart({ method, investments }: PerformanceChartProps) {
   const { investmentFilter, targetCurrency } = useToolbarContext();
-  
+
   // Use detailed data for table view, regular data for chart view
   const { isPending, error, data } = useCompare({
     investmentFilter,
@@ -69,7 +73,7 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
   }
 
   if (method === "detailed_table") {
-    return <PerformanceDataGrid series={data?.series} />;
+    return <PerformanceDataGrid series={data.series} />;
   }
 
   const option = {

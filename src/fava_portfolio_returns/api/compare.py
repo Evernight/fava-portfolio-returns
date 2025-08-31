@@ -1,7 +1,8 @@
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import NamedTuple, Union
+from typing import NamedTuple
+from typing import Union
 
 from fava_portfolio_returns.api.portfolio import portfolio_values
 from fava_portfolio_returns.core.portfolio import FilteredPortfolio
@@ -22,6 +23,7 @@ class DetailedDataPoint:
     simple_return: float
     twr: float
 
+
 @dataclass
 class DatedSeries:
     name: str
@@ -38,12 +40,13 @@ class Series(NamedTuple):
     name: str
     data: list[tuple[datetime.date, Union[float, DetailedDataPoint]]]
 
+
 def compare_chart(
     p: FilteredPortfolio, start_date: datetime.date, end_date: datetime.date, method: str, compare_with: list[str]
 ):
     if method == "detailed_table":
         return _compare_chart_detailed(p, start_date, end_date, compare_with)
-    
+
     returns_method = RETURN_METHODS.get(method)
     if not returns_method:
         raise ValueError(f"Invalid method '{method}'")
@@ -119,31 +122,33 @@ def _compare_chart_detailed(
     p: FilteredPortfolio, start_date: datetime.date, end_date: datetime.date, compare_with: list[str]
 ):
     """Generate detailed data points for the main portfolio and comparison groups."""
-    
+
     def create_detailed_series(portfolio: FilteredPortfolio, name: str) -> DatedSeries:
         values = portfolio_values(portfolio, start_date, end_date)
         simple_returns = SimpleReturns()
         twr_returns = TWR()
-        
+
         simple_returns_series = simple_returns.series(portfolio, start_date, end_date)
         twr_returns_series = twr_returns.series(portfolio, start_date, end_date)
 
         detailed_data = []
         for value, simple_return, twr_return in zip(values, simple_returns_series, twr_returns_series):
-            detailed_data.append(DetailedDataPoint(
-                date=value.date,
-                market=float(value.market),
-                cost=float(value.cost),
-                cash=float(value.cash),
-                simple_return=simple_return,
-                twr=twr_return
-            ))
-        
+            detailed_data.append(
+                DetailedDataPoint(
+                    date=value.date,
+                    market=float(value.market),
+                    cost=float(value.cost),
+                    cash=float(value.cash),
+                    simple_return=simple_return,
+                    twr=twr_return,
+                )
+            )
+
         return DatedSeries(name=name, data=[(dp.date, dp) for dp in detailed_data])
 
     # Main portfolio series
     group_series: list[DatedSeries] = [create_detailed_series(p, "Returns")]
-    
+
     # Group series
     for group in p.portfolio.investment_groups.groups:
         if group.id in compare_with:
