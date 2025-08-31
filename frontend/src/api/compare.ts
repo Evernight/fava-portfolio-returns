@@ -4,7 +4,7 @@ import { fetchJSON } from "./api";
 interface CompareRequest {
   investmentFilter: string[];
   targetCurrency: string;
-  method?: string;
+  method: string;
   compareWith: string[];
   detailed?: boolean;
 }
@@ -31,9 +31,7 @@ export function useCompare(request: CompareRequest): UseQueryResult<CompareRespo
   const params = new URLSearchParams(location.search); // keep Fava's filters like ?time=...
   params.set("investments", request.investmentFilter.join(","));
   params.set("currency", request.targetCurrency);
-  if (request.method) {
-    params.set("method", request.method);
-  }
+  params.set("method", request.method);
   params.set("compareWith", request.compareWith.join(","));
   if (request.detailed) {
     params.set("detailed", "true");
