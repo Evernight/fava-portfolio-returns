@@ -6,7 +6,6 @@ interface CompareRequest {
   targetCurrency: string;
   method: string;
   compareWith: string[];
-  detailed?: boolean;
 }
 
 export interface DetailedDataPoint {
@@ -33,9 +32,6 @@ export function useCompare(request: CompareRequest): UseQueryResult<CompareRespo
   params.set("currency", request.targetCurrency);
   params.set("method", request.method);
   params.set("compareWith", request.compareWith.join(","));
-  if (request.detailed) {
-    params.set("detailed", "true");
-  }
   const url = `compare?${params}`;
 
   return useQuery({

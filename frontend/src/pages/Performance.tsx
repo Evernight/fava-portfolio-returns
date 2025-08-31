@@ -57,9 +57,8 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
   const { isPending, error, data } = useCompare({
     investmentFilter,
     targetCurrency,
-    method: method === "detailed_table" ? undefined : method, // Don't pass method for detailed table
+    method: method,
     compareWith: investments,
-    detailed: method === "detailed_table",
   });
 
   if (isPending) {
@@ -93,7 +92,7 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
         formatter: percentFormatter,
       },
     },
-    series: data!.series.map((serie) => ({
+    series: data.series.map((serie) => ({
       type: "line",
       showSymbol: false,
       name: serie.name,

@@ -20,7 +20,7 @@ from flask import request
 from fava_portfolio_returns.api.cash_flows import cash_flows_chart
 from fava_portfolio_returns.api.cash_flows import cash_flows_table
 from fava_portfolio_returns.api.cash_flows import dividends_chart
-from fava_portfolio_returns.api.compare import compare_chart, compare_chart_detailed
+from fava_portfolio_returns.api.compare import compare_chart
 from fava_portfolio_returns.api.investments import investments_group_by_currency
 from fava_portfolio_returns.api.investments import investments_group_by_group
 from fava_portfolio_returns.api.portfolio import portfolio_allocation
