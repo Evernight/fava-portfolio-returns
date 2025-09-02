@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 import datetime
 import logging
+from dataclasses import dataclass
 from typing import Union
 
 from fava_portfolio_returns.api.portfolio import portfolio_values
@@ -20,6 +20,7 @@ class DetailedDataPoint:
     cash: float
     simple_return: float
     twr: float
+
 
 class DetailedTableReturns(ReturnsBase):
     """

@@ -82,8 +82,16 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
       valueFormatter: percentFormatter,
     },
     legend: {
-      bottom: 0,
+      top: 10,
     },
+    dataZoom: [
+      {
+        type: "slider",
+        handleLabel: {
+          show: true,
+        },
+      },
+    ],
     grid: {
       left: 100,
     },
@@ -104,5 +112,5 @@ function PerformanceChart({ method, investments }: PerformanceChartProps) {
     })),
   };
 
-  return <EChart height="400px" option={option} />;
+  return <EChart height="500px" option={option} />;
 }

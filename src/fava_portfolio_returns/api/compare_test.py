@@ -83,7 +83,6 @@ class TestCompare(unittest.TestCase):
     def test_savings_plan_middle(self):
         p = load_portfolio_file("savings_plan")
         series = compare_chart(p, datetime.date(2020, 3, 1), datetime.date(2020, 4, 1), "simple", ["c:CORP"])
-        print(series[0].data[0])
         assert series == [
             Series(
                 name="Returns",
@@ -177,18 +176,18 @@ class TestCompare(unittest.TestCase):
                 ],
             ),
             Series(
-                name="CORN (CORN)",
-                data=[
-                    (datetime.date(2020, 2, 5), 0.0),
-                    (datetime.date(2020, 3, 10), 0.5),
-                ],
-            ),
-            Series(
                 name="CORP (CORP)",
                 data=[
                     (datetime.date(2020, 2, 5), 0.0),
                     (datetime.date(2020, 2, 10), 0.25),
                     (datetime.date(2020, 3, 1), approx2(0.67)),
+                ],
+            ),
+            Series(
+                name="CORN (CORN)",
+                data=[
+                    (datetime.date(2020, 2, 5), 0.0),
+                    (datetime.date(2020, 3, 10), 0.5),
                 ],
             ),
         ]
